@@ -1,0 +1,9 @@
+# Core (versions used in the paper's environment; nearby versions should work)
+torch==2.4.1
+torchvision==0.19.1
+numpy>=1.24
+scipy>=1.10
+scikit-learn>=1.3      # gradient-boosted ML-Filter baseline
+pandas>=2.0
+matplotlib>=3.7        # figure regeneration
+tqdm>=4.65

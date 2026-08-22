@@ -1,0 +1,25 @@
+# data & trained artifacts (regenerate / download; too large for the repo)
+data/
+checkpoints/
+pools/
+*.pth
+*.pt
+*.ckpt
+
+# generated results & figures
+results/
+*.json
+figures/*.pdf
+figures/*.png
+
+# python
+__pycache__/
+*.pyc
+*.pyo
+.ipynb_checkpoints/
+.venv/
+venv/
+env/
+
+# os
+.DS_Store
