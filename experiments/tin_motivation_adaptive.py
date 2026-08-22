@@ -2,14 +2,14 @@
 TinyImageNet ResNet-18, contrasting three deployments across 5 query snapshots
 (q = 1, 25, 65, 100, 135):
   Static   -- single model; margin decays, misclassified early and stays broken.
-  Existing -- naive signal switching (no shield); a switch resets the attack (margin
+  Existing -- naive signal switching (no obfuscator); a switch resets the attack (margin
               recovers) but the re-baselining adversary re-breaks the new model later.
-  MADS     -- gate+MarginalFormer+greedy switch + decaying output shield; the shield
+  MADS     -- gate+MarginalFormer+greedy switch + decaying output obfuscator; the obfuscator
               corrupts the re-baseline, so the margin stays high and it never breaks.
 Each cell: the (imperceptibly) perturbed image, an amplified perturbation inset, and
 the DEPLOYED model's true prediction margin (green=correct, red=misclassified).
 Honest illustration of Table 7 (naive/detector switching undone by re-baselining vs
-MADS+shield holding). -> figures/fig_attack_progression.*
+MADS+obfuscator holding). -> figures/fig_attack_progression.*
 Usage: python3 tin_motivation_adaptive.py [search|<ix>]
 """
 import os, sys
@@ -69,7 +69,7 @@ def greedy_pick(xt, cur):
         for m in pool: c = F.softmax(m(xt), 1).cpu().numpy()[0]; cs = np.sort(c)[::-1]; ms.append(cs[0]-cs[1])
     others = [i for i in range(K) if i != cur]; return max(others, key=lambda i: ms[i])
 def softmax(z): e = np.exp(z - z.max()); return e/e.sum()
-def shield(z, tsw):
+def obfuscator(z, tsw):
     c = int(z.argmax()); zs = np.sort(z)[::-1]; margin = zs[0]-zs[1]
     alpha = 0.03 + (AMAX-0.03)*np.exp(-tsw/TAU); strength = alpha*np.clip(margin/MREF, 0, 1)
     noise = np.random.RandomState(((tsw*7+c) % (2**31))).normal(0, strength, size=z.shape).astype(np.float32)
@@ -96,12 +96,12 @@ class Oracle:
         if fire:
             s.cur = greedy_pick(xt, s.cur); s.switch_qs.append(s.qc); s.hist.clear(); s.tsw = 0
         if s.policy == 'mads' and s.tsw < 10**7:
-            z = shield(z, s.tsw)
+            z = obfuscator(z, s.tsw)
         return softmax(z)[None]
 
 
 def true_margin(cur, x, y):
-    """Display margin = softmax probability of the TRUE class y (raw, unshielded model).
+    """Display margin = softmax probability of the TRUE class y (raw, unobfuscated model).
     Consistent monotone semantics: high -> defended (Pass); low -> the true class was
     demoted below some other class -> misclassified (Success)."""
     z = logits(cur, torch.tensor(x[None], dtype=torch.float32, device=device))

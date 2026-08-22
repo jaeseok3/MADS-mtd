@@ -1,12 +1,12 @@
-"""Adaptive-robustness campaign for the switch-triggered decaying shield, per
-architecture (CIFAR-10). For a sweep of shield strength alpha (tau fixed), under
+"""Adaptive-robustness campaign for the switch-triggered decaying obfuscator, per
+architecture (CIFAR-10). For a sweep of obfuscator strength alpha (tau fixed), under
 MADS switching, measures:
   restart_asr  : switch-aware SignHunter that RE-BASELINES (re-attacks each new
-                 model) -- the strategy the shield is meant to defeat.
+                 model) -- the strategy the obfuscator is meant to defeat.
   transfer_asr : SignHunter that does NOT re-baseline -- it reuses its accumulated
                  perturbation across switches (transfer-fallback) -- defeated by
-                 pool divergence, not the shield.
-  acc          : benign returned-label accuracy (top-1 preserved => shield is
+                 pool divergence, not the obfuscator.
+  acc          : benign returned-label accuracy (top-1 preserved => obfuscator is
                  free). Also benign false switches.
 Usage: python c10_adaptive_campaign.py --arch resnet
 -> c10_adaptive_campaign_<arch>.json
@@ -54,7 +54,7 @@ def greedy_pick(xt, cur):
         for m in POOL: c = F.softmax(m(xt), 1).cpu().numpy()[0]; cs = np.sort(c)[::-1]; ms.append(cs[0]-cs[1])
     others = [i for i in range(K) if i != cur]; return max(others, key=lambda i: ms[i])
 
-def shield(z, tsw, amax, tau, mref=4.0):
+def obfuscator(z, tsw, amax, tau, mref=4.0):
     c = int(z.argmax()); zs = np.sort(z)[::-1]; margin = zs[0]-zs[1]
     alpha = 0.03 + (amax-0.03)*np.exp(-tsw/tau)
     strength = alpha*np.clip(margin/mref, 0.0, 1.0)
@@ -78,7 +78,7 @@ class Oracle:
             fire = conf_tr(w) > 0.5
         if fire:
             s.cur = greedy_pick(xt, s.cur); s.switches += 1; s.hist.clear(); s.tsw = 0
-        if s.amax > 0: z = shield(z, s.tsw, s.amax, s.tau)
+        if s.amax > 0: z = obfuscator(z, s.tsw, s.amax, s.tau)
         return F.softmax(torch.tensor(z), 0).numpy()
 
 def clip_eps(xa, xo, eps): return np.clip(np.clip(xa, xo-eps, xo+eps), 0, 1)

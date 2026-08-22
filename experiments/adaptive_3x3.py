@@ -1,7 +1,7 @@
-"""3x3 (dataset x architecture) adaptive-robustness of MADS+shield, on ONE
+"""3x3 (dataset x architecture) adaptive-robustness of MADS+obfuscator, on ONE
 consistent hardened harness (switch-aware re-baselining SignHunter, Q=2000,
 alpha_max=16, tau_sh=800, NIMG=150) -- identical settings to the CIFAR-10 ResNet
-Table-7 anchor (24.7). Reports MADS+shield adaptive score-based ASR (%) and benign
+Table-7 anchor (24.7). Reports MADS+obfuscator adaptive score-based ASR (%) and benign
 clean acc. Decision-based (HSJA) MADS ASR is already 0 across all 9 combos
 (arch_hardlabel_{ds}_{arch}.json, HSJA_ours). -> adaptive3x3_{DS}_{ARCH}.json
 
@@ -21,8 +21,8 @@ GATE = 0.85 if DS == 'c10' else 0.6
 EPS = 8/255
 NIMG = 150
 MAXQ = 2000
-SHIELD_AMAX = float(sys.argv[3]) if len(sys.argv) > 3 else 16.0
-SHIELD_TAU = float(sys.argv[4]) if len(sys.argv) > 4 else 800.0
+OBF_AMAX = float(sys.argv[3]) if len(sys.argv) > 3 else 16.0
+OBF_TAU = float(sys.argv[4]) if len(sys.argv) > 4 else 800.0
 
 POOLTAGS = {
     'c10':   {'resnet': 'c10_div_kd_resnet', 'vgg': 'c10_div_kd_vgg_final', 'alexnet': 'c10_div_kd_alexnet_final'},
@@ -59,7 +59,7 @@ def greedy_pick(xt, cur):
     others = [i for i in range(K) if i != cur]; return max(others, key=lambda i: ms[i])
 
 
-def shield(z, tsw, amax, tau, mref=4.0):
+def obfuscator(z, tsw, amax, tau, mref=4.0):
     c = int(z.argmax()); zs = np.sort(z)[::-1]; margin = zs[0]-zs[1]
     alpha = 0.03 + (amax-0.03)*np.exp(-tsw/tau)
     strength = alpha*np.clip(margin/mref, 0.0, 1.0)
@@ -74,7 +74,7 @@ def fwd_scores(cur, xt):
 
 
 class MADS:
-    def __init__(s, amax=SHIELD_AMAX, tau=SHIELD_TAU):
+    def __init__(s, amax=OBF_AMAX, tau=OBF_TAU):
         s.amax = amax; s.tau = tau
     def reset(s, start=0):
         s.cur = start; s.query_count = 0; s.switches = 0
@@ -92,7 +92,7 @@ class MADS:
         if fire:
             s.cur = greedy_pick(xt, s.cur); s.switches += 1; s.hist.clear(); s.tsw = 0
         if s.amax > 0:
-            z = shield(z, s.tsw, s.amax, s.tau)
+            z = obfuscator(z, s.tsw, s.amax, s.tau)
         return F.softmax(torch.tensor(z), 0).numpy()
 
 
@@ -145,8 +145,8 @@ def main():
     bacc = corr/50*100
 
     out = {'ds': DS, 'arch': ARCH, 'score_asr': round(asr, 1), 'dec_asr': 0.0,
-           'benign_acc': round(bacc, 1), 'nimg': NIMG, 'amax': SHIELD_AMAX, 'tau': SHIELD_TAU}
-    _tag = '' if (SHIELD_AMAX == 16.0 and SHIELD_TAU == 800.0) else f'_a{int(SHIELD_AMAX)}t{int(SHIELD_TAU)}'
+           'benign_acc': round(bacc, 1), 'nimg': NIMG, 'amax': OBF_AMAX, 'tau': OBF_TAU}
+    _tag = '' if (OBF_AMAX == 16.0 and OBF_TAU == 800.0) else f'_a{int(OBF_AMAX)}t{int(OBF_TAU)}'
     json.dump(out, open(f'adaptive3x3_{DS}_{ARCH}{_tag}.json', 'w'), indent=2)
     print(f"[done] {DS}/{ARCH} score_asr={asr:.1f} dec_asr=0.0 benign_acc={bacc:.1f}", flush=True)
 

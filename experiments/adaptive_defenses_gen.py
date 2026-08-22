@@ -1,7 +1,7 @@
 """Generalized Table-7 harness: adaptive (switch-aware re-baselining SignHunter,
-Q=2000) score-based ASR of every defense (None/AAA/Stateful/Blacklight/MADS+shield)
+Q=2000) score-based ASR of every defense (None/AAA/Stateful/Blacklight/MADS+obfuscator)
 for ONE (dataset, arch). Same settings as the CIFAR-10 ResNet anchor
-(c10_adaptive_defenses.py): NIMG=150, shield alpha_max=16 tau_sh=800.
+(c10_adaptive_defenses.py): NIMG=150, obfuscator alpha_max=16 tau_sh=800.
 Decision-based (HSJA) ASR comes separately from arch_hardlabel_{ds}_{arch}.json.
 -> adaptivedef_{DS}_{ARCH}.json
 Usage: python3 adaptive_defenses_gen.py <ds:c10|cifar|tin> <arch>
@@ -20,8 +20,8 @@ GATE = 0.85 if DS == 'c10' else 0.6
 EPS = 8/255
 NIMG = 150
 MAXQ = 2000
-SHIELD_AMAX = 16.0
-SHIELD_TAU = 800.0
+OBF_AMAX = 16.0
+OBF_TAU = 800.0
 
 POOLTAGS = {
     'c10':   {'resnet': 'c10_div_kd_resnet', 'vgg': 'c10_div_kd_vgg_final', 'alexnet': 'c10_div_kd_alexnet_final'},
@@ -58,7 +58,7 @@ def greedy_pick(xt, cur):
     others = [i for i in range(K) if i != cur]; return max(others, key=lambda i: ms[i])
 
 
-def shield(z, tsw, amax, tau, mref=4.0):
+def obfuscator(z, tsw, amax, tau, mref=4.0):
     c = int(z.argmax()); zs = np.sort(z)[::-1]; margin = zs[0]-zs[1]
     alpha = 0.03 + (amax-0.03)*np.exp(-tsw/tau)
     strength = alpha*np.clip(margin/mref, 0.0, 1.0)
@@ -94,7 +94,7 @@ def fwd_scores(cur, xt):
 
 
 class Defense:
-    def __init__(s, kind, thr=None, amax=0.0, tau=SHIELD_TAU):
+    def __init__(s, kind, thr=None, amax=0.0, tau=OBF_TAU):
         s.kind = kind; s.thr = thr; s.amax = amax; s.tau = tau
     def reset(s, start=0):
         s.cur = start; s.query_count = 0; s.switches = 0
@@ -114,7 +114,7 @@ class Defense:
             return F.softmax(torch.tensor(z), 0).numpy()
         sc_true = F.softmax(torch.tensor(z), 0).numpy(); ss = np.sort(sc_true)[::-1]
         s.hist.append(ss[0]-ss[1]); h = list(s.hist); fire = False
-        if s.kind == 'mads_shield':
+        if s.kind == 'mads_obfuscator':
             if len(h) >= W and np.mean(h[-W:]) < GATE:
                 w = np.array(h[-L:]); w = np.pad(w, (L-len(w), 0), constant_values=w[0]) if len(w) < L else w
                 fire = conf_tr(w) > 0.5
@@ -133,8 +133,8 @@ class Defense:
             for hh in fp: s.bl_idx.setdefault(hh, []).append(s.bl_q)
         if fire:
             s.cur = greedy_pick(xt, s.cur); s.switches += 1; s.hist.clear(); s.tsw = 0
-        if s.kind == 'mads_shield' and s.amax > 0:
-            z = shield(z, s.tsw, s.amax, s.tau)
+        if s.kind == 'mads_obfuscator' and s.amax > 0:
+            z = obfuscator(z, s.tsw, s.amax, s.tau)
         return F.softmax(torch.tensor(z), 0).numpy()
 
 
@@ -197,7 +197,7 @@ def main():
         ('AAA',           lambda: Defense('aaa')),
         ('Stateful Det.', lambda: Defense('stateful', thr=st_thr)),
         ('Blacklight',    lambda: Defense('blacklight', thr=bl_thr)),
-        ('MADS',          lambda: Defense('mads_shield', amax=SHIELD_AMAX)),
+        ('MADS',          lambda: Defense('mads_obfuscator', amax=OBF_AMAX)),
     ]
     res = {}
     for name, mk in DEFS:

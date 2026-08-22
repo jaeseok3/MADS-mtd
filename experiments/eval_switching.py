@@ -6,7 +6,6 @@ Strategies:
   - periodic-N: Switch every N queries
   - random-p: Switch with probability p per query
   - signal: Switch when running margin drops below threshold
-  - rl: DQN-learned policy
 
 Usage:
     python eval_switching.py --pool_dir divergent_kd_v5b_pool --num_images 200 --device cuda
@@ -112,12 +111,6 @@ class SwitchingOracle:
                     return True
             return False
 
-        if self.strategy == 'rl':
-            return self._rl_decide(scores)
-
-        return False
-
-    def _rl_decide(self, scores):
         return False
 
     def __call__(self, x_batch):

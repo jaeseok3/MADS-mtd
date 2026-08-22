@@ -15,7 +15,7 @@ for f in ['Regular', 'Bold', 'Italic']:
 plt.rcParams.update({'font.family': 'Liberation Serif', 'mathtext.fontset': 'stix',
                      'font.size': 9, 'axes.labelsize': 9.5, 'xtick.labelsize': 8,
                      'ytick.labelsize': 8, 'legend.fontsize': 7, 'axes.linewidth': 0.8,
-                     'xtick.direction': 'in', 'ytick.direction': 'in'})  # shared style w/ fig_adaptive_shield
+                     'xtick.direction': 'in', 'ytick.direction': 'in'})  # shared style w/ fig_adaptive_obfuscator
 DIR = os.path.dirname(os.path.abspath(__file__)); FIG = os.path.join(os.path.dirname(DIR), 'figures')
 BUDGETS = list(range(2000, 16001, 1000))  # 2k..16k at 1k intervals
 # top-tier scheme: ColorBrewer Dark2 + distinct marker & line style per dataset
@@ -23,7 +23,7 @@ DS = [('cifar', 'CIFAR-100', '#1b9e77', 'o', '-'),
       ('c10', 'CIFAR-10', '#d95f02', 's', '--'),
       ('tin', 'TinyImageNet', '#7570b3', '^', '-.')]
 
-fig, ax = plt.subplots(figsize=(3.5, 2.05))  # match fig_adaptive_shield
+fig, ax = plt.subplots(figsize=(3.5, 2.05))  # match fig_adaptive_obfuscator
 xs_all = []
 for key, name, col, mk, ls in DS:
     xs, static = [], []

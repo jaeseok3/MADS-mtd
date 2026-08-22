@@ -1,7 +1,7 @@
 """figure*: 3 subfigures (ResNet / VGG / AlexNet) side by side. Each plots, vs
-shield strength alpha, the adaptive attack success of a switch-aware RESTART
+obfuscator strength alpha, the adaptive attack success of a switch-aware RESTART
 attacker and a TRANSFER-reuse attacker (left y-axis, ASR %), plus benign accuracy
-(right y-axis). Shows the shield collapses the restart attacker at zero accuracy
+(right y-axis). Shows the obfuscator collapses the restart attacker at zero accuracy
 cost while divergence already holds the transfer attacker low."""
 import json, os
 import numpy as np
@@ -21,7 +21,7 @@ DIR = os.path.dirname(os.path.abspath(__file__)); FIG = os.path.join(os.path.dir
 ARCHS = [('resnet', 'ResNet-18'), ('vgg', 'VGG-16-BN'), ('alexnet', 'AlexNet')]
 
 # single taller panel: all three architectures overlaid. Restart attacker (solid,
-# left axis) collapses as shield strength grows; benign accuracy (dotted, right
+# left axis) collapses as obfuscator strength grows; benign accuracy (dotted, right
 # axis) stays flat. Transfer-reuse attacker dropped.
 from matplotlib.lines import Line2D
 # top-tier scheme: ColorBrewer Dark2 + distinct marker & line style per series (B&W-safe)
@@ -50,5 +50,5 @@ leg = ax.legend(handles=leg_h, loc='upper right', frameon=True, edgecolor='#bbb'
 leg.get_frame().set_linewidth(0.6)
 plt.tight_layout()
 for ext in ('pdf', 'png'):
-    fig.savefig(os.path.join(FIG, f'fig_adaptive_shield.{ext}'), dpi=200, bbox_inches='tight')
-print('saved fig_adaptive_shield (3-arch, taller, no transfer-reuse)')
+    fig.savefig(os.path.join(FIG, f'fig_adaptive_obfuscator.{ext}'), dpi=200, bbox_inches='tight')
+print('saved fig_adaptive_obfuscator (3-arch, taller, no transfer-reuse)')

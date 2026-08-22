@@ -5,7 +5,7 @@ reference to the LIVE deployed output every 30 queries -- the strategy that
 defeats plain switching. We run it against:
   None (static single model), RND (input noise), AAA (logit shaping, top-1 kept),
   Stateful Detection / Blacklight (adapted as switch triggers + greedy select),
-  MADS (switching only), MADS+shield (switch-triggered decaying output shield).
+  MADS (switching only), MADS+obfuscator (switch-triggered decaying output obfuscator).
 Reports adaptive ASR (%) and benign clean accuracy (%). -> c10_adaptive_defenses.json
 """
 import os, sys, json, pickle
@@ -20,8 +20,8 @@ W, L, GATE = 10, 50, 0.85
 EPS = 8/255
 NIMG = 150
 MAXQ = 2000
-SHIELD_AMAX = 16.0     # accuracy is flat for any alpha (campaign); use strong point
-SHIELD_TAU = 800.0
+OBF_AMAX = 16.0     # accuracy is flat for any alpha (campaign); use strong point
+OBF_TAU = 800.0
 
 POOL = A.load_pool('c10_div_kd_resnet', 'resnet', 'c10', device); K = len(POOL)
 ts = A.get_testset('c10')
@@ -45,7 +45,7 @@ def greedy_pick(xt, cur):
     with torch.no_grad():
         for m in POOL: c = F.softmax(m(xt), 1).cpu().numpy()[0]; cs = np.sort(c)[::-1]; ms.append(cs[0]-cs[1])
     others = [i for i in range(K) if i != cur]; return max(others, key=lambda i: ms[i])
-def shield(z, tsw, amax, tau, mref=4.0):
+def obfuscator(z, tsw, amax, tau, mref=4.0):
     c = int(z.argmax()); zs = np.sort(z)[::-1]; margin = zs[0]-zs[1]
     alpha = 0.03 + (amax-0.03)*np.exp(-tsw/tau)
     strength = alpha*np.clip(margin/mref, 0.0, 1.0)
@@ -77,8 +77,8 @@ def fwd_scores(cur, xt):
     with torch.no_grad(): return POOL[cur](xt).cpu().numpy()[0]
 
 class Defense:
-    """kind in: none|rnd|aaa|stateful|blacklight|mads|mads_shield"""
-    def __init__(s, kind, thr=None, amax=0.0, tau=SHIELD_TAU):
+    """kind in: none|rnd|aaa|stateful|blacklight|mads|mads_obfuscator"""
+    def __init__(s, kind, thr=None, amax=0.0, tau=OBF_TAU):
         s.kind = kind; s.thr = thr; s.amax = amax; s.tau = tau
     def reset(s, start=0):
         s.cur = start; s.query_count = 0; s.switches = 0
@@ -103,7 +103,7 @@ class Defense:
         # switching defenses: decide fire
         sc_true = F.softmax(torch.tensor(z), 0).numpy(); ss = np.sort(sc_true)[::-1]
         s.hist.append(ss[0]-ss[1]); h = list(s.hist); fire = False
-        if s.kind in ('mads', 'mads_shield'):
+        if s.kind in ('mads', 'mads_obfuscator'):
             if len(h) >= W and np.mean(h[-W:]) < GATE:
                 w = np.array(h[-L:]); w = np.pad(w, (L-len(w), 0), constant_values=w[0]) if len(w) < L else w
                 fire = conf_tr(w) > 0.5
@@ -122,8 +122,8 @@ class Defense:
             for hh in fp: s.bl_idx.setdefault(hh, []).append(s.bl_q)
         if fire:
             s.cur = greedy_pick(xt, s.cur); s.switches += 1; s.hist.clear(); s.tsw = 0
-        if s.kind == 'mads_shield' and s.amax > 0:
-            z = shield(z, s.tsw, s.amax, s.tau if hasattr(s, 'tau') else SHIELD_TAU)
+        if s.kind == 'mads_obfuscator' and s.amax > 0:
+            z = obfuscator(z, s.tsw, s.amax, s.tau if hasattr(s, 'tau') else OBF_TAU)
         return F.softmax(torch.tensor(z), 0).numpy()
 
 def clip_eps(xa, xo, eps): return np.clip(np.clip(xa, xo-eps, xo+eps), 0, 1)
@@ -193,8 +193,8 @@ def main():
         ('AAA',             lambda: Defense('aaa')),
         ('Stateful Det.',   lambda: Defense('stateful', thr=st_thr)),
         ('Blacklight',      lambda: Defense('blacklight', thr=bl_thr)),
-        ('MADS (no shield)',lambda: Defense('mads')),
-        (f'MADS+shield',    lambda: Defense('mads_shield', amax=SHIELD_AMAX)),
+        ('MADS (no obfuscator)',lambda: Defense('mads')),
+        (f'MADS+obfuscator',    lambda: Defense('mads_obfuscator', amax=OBF_AMAX)),
     ]
     res = {}
     for name, mk in DEFS:
